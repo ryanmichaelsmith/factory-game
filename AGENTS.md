@@ -470,3 +470,46 @@ Advanced features: enemies, oil processing, modding, multiplayer.
 
 ---
 
+## 20. Factorio-Like Flavor Checklist
+
+Use this list to steer new work toward the classic Factorio feel. Prefer thin, testable modules (helpers for ratios, belt math, inserter reach) over monoliths so the loop stays debuggable and scalable.
+
+### Economy & Ratios
+
+* Publish canonical early-game ratios (e.g., **30 iron/s** from one blue belt, **1:1:1** miner:smelter:furnace for vanilla speeds) as constants used in tests and UI hints.
+* Encourage **main-bus** layouts by keeping bus tiles clear of obstacles and providing wide, orthogonal belt snapping.
+* Expose **belt throughput per tier** (yellow/red/blue) and surface it in tooltips to guide players toward compression.
+
+### Logistics & Inserters
+
+* Model **inserter pickup/drop tiles**, swing speed, and stack size upgrades; visualize ghost arcs during placement.
+* Support **lane-balancing** primitives (splitters with priority filters, balancers in presets) and verify with simulation tests.
+* Allow **underground belts** with max distance per tier to enable weaving in tight builds.
+
+### Power & Pollution
+
+* Implement a **power network agent** with production/consumption graphs and brownout behavior; favor deterministic load-shedding over silent stalls.
+* Track **pollution clouds** that spread over time; couple them to enemy aggression or efficiency penalties even if enemies are not yet present.
+
+### Progression & Research
+
+* Structure **science packs** as tiered items with clear recipes and colored icons; gate machines and belts behind research steps that mirror the packs.
+* Add **upgrade techs** (inserter stack size, crafting speed, mining productivity) that alter simulation constants and must be reflected in tests.
+
+### Combat & Hazards (Optional but On-Theme)
+
+* Reserve hooks for **biters/nests**: pollution attraction, pathfinding toward power poles, and turret mechanics with ammo belts.
+* Include **train automation slots** (signals, blocks, schedules) even if initial content ships with a stubbed rail network.
+
+### UX & Blueprinting
+
+* Provide **blueprint/ghost placement** with costs and deconstruction planner; ensure ghosts respect collision and reach rules.
+* Favor **grid-aligned camera panning** and fast zoom levels; keep overlays (power, pollution, logistics) as toggles for clarity.
+
+### Testing Guidance
+
+* Unit-test throughput math, inserter reach logic, splitter balancing, and power satisfaction curves.
+* Snapshot-test blueprint serialization and ghost rendering so UX stays consistent while refactoring.
+
+These flavor notes are advisory but should guide priorities when choosing between generic automation features and Factorio-like depth.
+

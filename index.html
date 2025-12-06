@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Factory Valley</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="hud">
+    <div class="title">Factory Valley</div>
+    <div class="controls">
+      <button data-tool="belt">Belt (B) ↻R</button>
+      <button data-tool="miner">Miner (M)</button>
+      <button data-tool="assembler">Assembler (A)</button>
+      <button data-tool="hub">Hub (H)</button>
+      <button data-tool="remove">Remove (X)</button>
+      <button id="pause-btn" class="secondary">Pause (Space/P)</button>
+      <button id="reset-btn" class="secondary">Regenerate (N)</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+  <canvas id="game" width="960" height="640"></canvas>
+  <div class="tip">
+    Drag belts to chain directions. Feed iron into assemblers to craft gears. Deliver gears to the hub to increase your score.
+    Space/P pauses, N regenerates the map, and R rotates your placement ghost.
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
