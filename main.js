@@ -178,6 +178,10 @@ function renderPower() {
   const pausedNote = state.productionPaused ? " (consumers paused)" : "";
   ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used${pausedNote}`;
   const ratio = use === 0 ? (generate > 0 ? 1 : 0) : Math.min(1, efficiency);
+  const pausedNote = state.productionPaused ? " (paused)" : "";
+  ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used${pausedNote}`;
+  ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used`;
+  const ratio = use === 0 ? 0 : Math.min(1, efficiency);
   ui.powerBar.style.width = `${Math.max(6, ratio * 100)}%`;
   ui.powerBar.style.background = ratio < 0.4 ? `linear-gradient(90deg, var(--danger), #ff9b6b)` : "";
   ui.powerBar.title =
@@ -201,6 +205,9 @@ function renderFlow() {
 }
 
 function summarizeFlow() {
+  if (state.productionPaused) {
+    return { Ore: 0, Ingots: 0, "Machine Parts": 0 };
+  }
   const { efficiency } = state.powerSnapshot;
   const totals = { Ore: 0, Ingots: 0, "Machine Parts": 0 };
   const active = getActiveBuildings(state.productionPaused);
@@ -228,6 +235,11 @@ function resolvePower({ activeBuildings = buildings, ignoreUse = false } = {}) {
   let use = 0;
 
   activeBuildings.forEach((b) => {
+function resolvePower() {
+  let generate = 0;
+  let use = 0;
+
+  buildings.forEach((b) => {
     const power = b.power(state.buildings[b.id]);
     generate += power.generate;
     use += ignoreUse ? 0 : power.use;
@@ -265,6 +277,19 @@ function tick() {
       updateResources(prod);
     }
   });
+  let efficiency = 1;
+  const { efficiency } = resolvePower();
+
+  if (state.productionPaused) {
+    state.powerSnapshot = { generate: 0, use: 0, efficiency: 1 };
+  } else {
+    ({ efficiency } = resolvePower());
+
+    buildings.forEach((building) => {
+      const prod = building.production(state.buildings[building.id], efficiency);
+      updateResources(prod);
+    });
+  }
 
   if (state.tick % 4 === 0) pushLog(`Tick ${state.tick}: automation pulse`);
   updateUi();
@@ -303,6 +328,7 @@ function toggleAutomation() {
       ? "Automation paused. Extractors and generators stay online; consumers halt."
       : "Automation resumed."
   );
+  pushLog(state.productionPaused ? "Automation paused. Resources will not be consumed." : "Automation resumed.");
   updateUi();
 }
 
