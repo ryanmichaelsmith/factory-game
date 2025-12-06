@@ -177,10 +177,17 @@ function renderPower() {
   const { generate, use, efficiency } = state.powerSnapshot;
   const pausedNote = state.productionPaused ? " (consumers paused)" : "";
   ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used${pausedNote}`;
-  const ratio = use === 0 ? 0 : Math.min(1, efficiency);
+  const ratio = use === 0 ? (generate > 0 ? 1 : 0) : Math.min(1, efficiency);
   ui.powerBar.style.width = `${Math.max(6, ratio * 100)}%`;
   ui.powerBar.style.background = ratio < 0.4 ? `linear-gradient(90deg, var(--danger), #ff9b6b)` : "";
-  ui.powerBar.title = ratio < 1 ? "Power limited — output throttled" : "Stable grid";
+  ui.powerBar.title =
+    use === 0
+      ? generate > 0
+        ? "Surplus available — consumers idle"
+        : "Grid idle"
+      : ratio < 1
+      ? "Power limited — output throttled"
+      : "Stable grid";
 }
 
 function renderFlow() {
