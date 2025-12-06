@@ -49,11 +49,13 @@ const state = {
   tick: 0,
   log: [],
   powerSnapshot: { generate: 0, use: 0, efficiency: 1 },
+  productionPaused: false,
 };
 
 const ui = {
   resourceGrid: document.querySelector("#resource-grid"),
   harvestBtn: document.querySelector("#harvest-btn"),
+  automationToggle: document.querySelector("#automation-toggle"),
   buildingContainer: document.querySelector("#buildings"),
   log: document.querySelector("#log"),
   power: document.querySelector("#power-readout"),
@@ -149,12 +151,21 @@ function updateUi() {
     const count = document.querySelector(`#${b.id}-count`);
     if (count) count.textContent = `x${state.buildings[b.id]}`;
   });
+  renderAutomationToggle();
   renderPower();
   renderFlow();
 }
 
+function renderAutomationToggle() {
+  if (!ui.automationToggle) return;
+  ui.automationToggle.textContent = state.productionPaused ? "Resume automation" : "Pause automation";
+  ui.automationToggle.ariaPressed = state.productionPaused;
+}
+
 function renderPower() {
   const { generate, use, efficiency } = state.powerSnapshot;
+  const pausedNote = state.productionPaused ? " (paused)" : "";
+  ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used${pausedNote}`;
   ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used`;
   const ratio = use === 0 ? 0 : Math.min(1, efficiency);
   ui.powerBar.style.width = `${Math.max(6, ratio * 100)}%`;
@@ -173,6 +184,9 @@ function renderFlow() {
 }
 
 function summarizeFlow() {
+  if (state.productionPaused) {
+    return { Ore: 0, Ingots: 0, "Machine Parts": 0 };
+  }
   const { efficiency } = state.powerSnapshot;
   const totals = { Ore: 0, Ingots: 0, "Machine Parts": 0 };
   buildings.forEach((building) => {
@@ -219,12 +233,19 @@ function resolvePower() {
 
 function tick() {
   state.tick += 1;
+  let efficiency = 1;
   const { efficiency } = resolvePower();
 
-  buildings.forEach((building) => {
-    const prod = building.production(state.buildings[building.id], efficiency);
-    updateResources(prod);
-  });
+  if (state.productionPaused) {
+    state.powerSnapshot = { generate: 0, use: 0, efficiency: 1 };
+  } else {
+    ({ efficiency } = resolvePower());
+
+    buildings.forEach((building) => {
+      const prod = building.production(state.buildings[building.id], efficiency);
+      updateResources(prod);
+    });
+  }
 
   if (state.tick % 4 === 0) pushLog(`Tick ${state.tick}: automation pulse`);
   updateUi();
@@ -250,9 +271,16 @@ function init() {
   createResourceCards();
   createBuildingCards();
   ui.harvestBtn.addEventListener("click", manualHarvest);
+  ui.automationToggle.addEventListener("click", toggleAutomation);
   pushLog("Factory initialized. Begin with manual harvests.");
   updateUi();
   setInterval(tick, 1000);
+}
+
+function toggleAutomation() {
+  state.productionPaused = !state.productionPaused;
+  pushLog(state.productionPaused ? "Automation paused. Resources will not be consumed." : "Automation resumed.");
+  updateUi();
 }
 
 init();
