@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Factory Automation</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top-bar">
+    <div class="title">
+      <span class="dot"></span>
+      <div>
+        <p class="eyebrow">Automation Prototype</p>
+        <h1>Factory Command</h1>
+      </div>
+    </div>
+    <div class="clock" id="clock">00:00</div>
+  </header>
+
+  <main>
+    <section class="panel status">
+      <h2>Resources</h2>
+      <div class="resource-grid" id="resource-grid"></div>
+      <div class="actions">
+        <button id="harvest-btn" class="primary">Manual harvest</button>
+        <div class="hint">Harvest ore to bootstrap the factory. Automation takes over once you place machines.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Power & Throughput</h2>
+      <div class="power" id="power-readout"></div>
+      <div class="progress" aria-label="power load">
+        <div class="progress-bar" id="power-bar"></div>
+      </div>
+      <div class="flow" id="flow-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Build Queue</h2>
+      <div class="buildings" id="buildings"></div>
+    </section>
+
+    <section class="panel log">
+      <h2>Factory Log</h2>
+      <ol id="log"></ol>
+    </section>
+  </main>
+
+  <template id="building-template">
+    <article class="building">
+      <div class="building-header">
+        <div>
+          <p class="eyebrow building-tier"></p>
+          <h3 class="building-name"></h3>
+          <p class="building-desc"></p>
+        </div>
+        <div class="building-count"></div>
+      </div>
+      <p class="building-cost"></p>
+      <button class="primary buy-btn">Build</button>
+    </article>
+  </template>
+
+  <script src="main.js"></script>
+</body>
+</html>
