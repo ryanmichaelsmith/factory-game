@@ -33,6 +33,7 @@ function createState() {
     selected: 'belt',
     rotation: 0,
     hovered: null,
+    paused: false,
     score: 0,
     ticks: 0,
     lastPlacement: null
@@ -92,7 +93,18 @@ function initializeGame(doc = document) {
   if (!canvas) return;
   ctx = canvas.getContext('2d');
   statusEl = doc.getElementById('status');
-  buttons = doc.querySelectorAll('.controls button');
+  buttons = doc.querySelectorAll('.controls button[data-tool]');
+
+  const pauseBtn = doc.getElementById('pause-btn');
+  const resetBtn = doc.getElementById('reset-btn');
+
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', togglePause);
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', resetGame);
+  }
 
   buttons.forEach((btn) => {
     btn.addEventListener('click', () => setSelected(btn.dataset.tool));
@@ -102,8 +114,15 @@ function initializeGame(doc = document) {
     if (e.key === 'r' || e.key === 'R') {
       state.rotation = (state.rotation + 1) % directions.length;
     }
+    if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
+      togglePause();
+    }
+    if (e.key === 'n' || e.key === 'N') {
+      resetGame();
+    }
     if (e.key === 'b' || e.key === 'B') setSelected('belt');
     if (e.key === 'm' || e.key === 'M') setSelected('miner');
+    if (e.key === 's' || e.key === 'S') setSelected('smelter');
     if (e.key === 'a' || e.key === 'A') setSelected('assembler');
     if (e.key === 'h' || e.key === 'H') setSelected('hub');
     if (e.key === 'x' || e.key === 'X') setSelected('remove');
@@ -141,6 +160,7 @@ function structureAt(x, y) {
 }
 
 function placeStructure(x, y, type, rotation) {
+  if (!canPlace(x, y, type)) return;
   const existing = structureAt(x, y);
   if (existing && type !== 'belt') return;
 
@@ -151,6 +171,8 @@ function placeStructure(x, y, type, rotation) {
     const tile = state.world[y][x];
     if (!tile.resource) return;
     state.structures.set(key(x, y), { type: 'miner', dir: rotation, progress: 0 });
+  } else if (type === 'smelter') {
+    state.structures.set(key(x, y), { type: 'smelter', dir: rotation, progress: 0, input: [], crafting: false, smelting: null });
   } else if (type === 'assembler') {
     state.structures.set(key(x, y), { type: 'assembler', dir: rotation, progress: 0, input: [], crafting: false });
   } else if (type === 'hub') {
@@ -177,8 +199,15 @@ function addLooseItem(x, y, item) {
 }
 
 function update(dt) {
+  if (state.paused) {
+    if (statusEl) {
+      statusEl.textContent = `Paused | Selected: ${state.selected} | Rotation: ${directions[state.rotation].name}`;
+    }
+    return;
+  }
   state.ticks++;
   updateMiners(dt);
+  updateSmelters(dt);
   updateAssemblers(dt);
   updateBelts(dt);
   updateLoose(dt);
@@ -198,6 +227,40 @@ function updateMiners(dt) {
       const tile = state.world[y][x];
       if (tile.resource && tile.resource.amount > 0) {
         const out = moveForward(x, y, structure.dir);
+        const item = { type: tile.resource.type };
+        const target = structureAt(out.x, out.y);
+        deliverOutput(item, target, out);
+      }
+    }
+  });
+}
+
+function updateSmelters(dt) {
+  const craftTime = 2.2;
+  state.structures.forEach((structure, pos) => {
+    if (structure.type !== 'smelter') return;
+    if (structure.crafting) {
+      structure.progress += dt;
+      if (structure.progress >= craftTime) {
+        structure.progress = 0;
+        structure.crafting = false;
+        const [x, y] = pos.split(',').map(Number);
+        const out = moveForward(x, y, structure.dir);
+        const target = structureAt(out.x, out.y);
+        const plateType = `${structure.smelting}-plate`;
+        const item = { type: plateType };
+        deliverOutput(item, target, out);
+        structure.smelting = null;
+      }
+      return;
+    }
+
+    const oreIndex = structure.input.findIndex((i) => i.type === 'iron' || i.type === 'copper');
+    if (oreIndex !== -1) {
+      const [ore] = structure.input.splice(oreIndex, 1);
+      structure.crafting = true;
+      structure.progress = 0;
+      structure.smelting = ore.type;
         const target = structureAt(out.x, out.y);
         const item = { type: tile.resource.type };
         if (target && target.type === 'belt') {
@@ -223,23 +286,16 @@ function updateAssemblers(dt) {
         structure.crafting = false;
         const [x, y] = pos.split(',').map(Number);
         const out = moveForward(x, y, structure.dir);
-        const target = structureAt(out.x, out.y);
         const item = { type: 'gear' };
-        if (target && target.type === 'belt') {
-          if (!addItemToBelt(target, item)) {
-            addLooseItem(out.x, out.y, item);
-          }
-        } else if (target && target.type === 'hub') {
-          state.score += 5;
-        } else {
-          addLooseItem(out.x, out.y, item);
-        }
+        const target = structureAt(out.x, out.y);
+        deliverOutput(item, target, out);
       }
       return;
     }
 
     let removed = 0;
     structure.input = structure.input.filter((i) => {
+      if (i.type === 'iron-plate' && removed < 2) {
       if (i.type === 'iron' && removed < 2) {
         removed += 1;
         return false;
@@ -252,6 +308,27 @@ function updateAssemblers(dt) {
       structure.progress = 0;
     }
   });
+}
+
+function scoreItem(type) {
+  if (type === 'gear') return 10;
+  if (type === 'iron-plate') return 3;
+  if (type === 'copper-plate') return 2;
+  return 1;
+}
+
+function deliverOutput(item, target, dest) {
+  if (target && target.type === 'belt') {
+    if (!addItemToBelt(target, item)) {
+      addLooseItem(dest.x, dest.y, item);
+    }
+  } else if (target && (target.type === 'assembler' || target.type === 'smelter')) {
+    target.input.push(item);
+  } else if (target && target.type === 'hub') {
+    state.score += scoreItem(item.type);
+  } else if (inBounds(dest.x, dest.y)) {
+    addLooseItem(dest.x, dest.y, item);
+  }
 }
 
 function updateBelts(dt) {
@@ -282,13 +359,10 @@ function updateBelts(dt) {
       if (!success) {
         originBelt.items.push({ ...item, progress: 0.95 });
       }
-    } else if (to && to.type === 'assembler') {
-      to.input.push(item);
-    } else if (to && to.type === 'hub') {
-      state.score += item.type === 'gear' ? 10 : 1;
-    } else if (inBounds(dest.x, dest.y)) {
-      addLooseItem(dest.x, dest.y, item);
+      return;
     }
+
+    deliverOutput(item, to, dest);
   });
 }
 
@@ -316,6 +390,7 @@ function draw() {
   drawItems();
   drawHover();
   drawLastPlacement();
+  if (state.paused) drawPauseOverlay();
 }
 
 function drawTiles() {
@@ -341,6 +416,7 @@ function drawStructures() {
     const [x, y] = pos.split(',').map(Number);
     if (structure.type === 'belt') drawBelt(x, y, structure.dir, structure.items);
     if (structure.type === 'miner') drawMiner(x, y, structure.dir, structure.progress);
+    if (structure.type === 'smelter') drawSmelter(x, y, structure.dir, structure.progress, structure.crafting);
     if (structure.type === 'assembler') drawAssembler(x, y, structure.dir, structure.progress, structure.crafting);
     if (structure.type === 'hub') drawHub(x, y);
   });
@@ -378,6 +454,18 @@ function drawMiner(x, y, dirIndex, progress) {
   ctx.fillStyle = '#9ce686';
   ctx.fillRect(x * tileSize + 6, y * tileSize + tileSize - 8, (tileSize - 12) * bar, 4);
   drawDirectionArrow(x, y, dirIndex, '#c7ffae');
+}
+
+function drawSmelter(x, y, dirIndex, progress, crafting) {
+  ctx.fillStyle = colors.smelter;
+  ctx.fillRect(x * tileSize + 2, y * tileSize + 2, tileSize - 4, tileSize - 4);
+  ctx.fillStyle = '#5b281a';
+  ctx.fillRect(x * tileSize + 5, y * tileSize + 5, tileSize - 10, tileSize - 10);
+  drawDirectionArrow(x, y, dirIndex, '#ffc298');
+  if (crafting) {
+    ctx.fillStyle = '#ffb870';
+    ctx.fillRect(x * tileSize + 6, y * tileSize + tileSize - 8, (tileSize - 12) * Math.min(progress / 2.2, 1), 4);
+  }
 }
 
 function drawAssembler(x, y, dirIndex, progress, crafting) {
@@ -428,7 +516,11 @@ function drawItems() {
 }
 
 function drawItem(px, py, type, radius = 6) {
-  ctx.fillStyle = type === 'iron' ? '#a1c4ff' : type === 'copper' ? '#f7ae7b' : '#ffe37d';
+  if (type === 'iron') ctx.fillStyle = '#a1c4ff';
+  else if (type === 'copper') ctx.fillStyle = '#f7ae7b';
+  else if (type === 'iron-plate') ctx.fillStyle = '#d6e8ff';
+  else if (type === 'copper-plate') ctx.fillStyle = '#ffcf9f';
+  else ctx.fillStyle = '#ffe37d';
   ctx.beginPath();
   ctx.arc(px, py, radius, 0, Math.PI * 2);
   ctx.fill();
@@ -443,6 +535,15 @@ function drawHover() {
   ctx.strokeStyle = '#31d6ff';
   ctx.lineWidth = 2;
   ctx.strokeRect(x * tileSize + 2, y * tileSize + 2, tileSize - 4, tileSize - 4);
+
+  const valid = canPlace(x, y, state.selected);
+  ctx.strokeStyle = valid ? 'rgba(49,214,255,0.7)' : 'rgba(255,82,82,0.8)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x * tileSize + 5, y * tileSize + 5, tileSize - 10, tileSize - 10);
+
+  if (state.selected !== 'remove') {
+    drawDirectionArrow(x, y, state.rotation, valid ? '#31d6ff' : '#ff5252');
+  }
 }
 
 function drawLastPlacement() {
@@ -463,6 +564,51 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+function togglePause() {
+  state.paused = !state.paused;
+  const pauseBtn = typeof document !== 'undefined' ? document.getElementById('pause-btn') : null;
+  if (pauseBtn) {
+    pauseBtn.textContent = state.paused ? 'Resume (Space/P)' : 'Pause (Space/P)';
+  }
+}
+
+function resetGame() {
+  const fresh = createState();
+  Object.assign(state, fresh);
+  state.structures = new Map();
+  state.looseItems = [];
+  genWorld(state);
+  setSelected('belt');
+  state.paused = false;
+  const pauseBtn = typeof document !== 'undefined' ? document.getElementById('pause-btn') : null;
+  if (pauseBtn) {
+    pauseBtn.textContent = 'Pause (Space/P)';
+  }
+}
+
+function canPlace(x, y, type) {
+  if (!inBounds(x, y)) return false;
+  const existing = structureAt(x, y);
+  if (type === 'remove') return !!existing;
+  if (type === 'miner') {
+    return state.world?.[y]?.[x]?.resource != null;
+  }
+  if (existing && type !== 'belt') return false;
+  return true;
+}
+
+function drawPauseOverlay() {
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#e6f6ff';
+  ctx.font = 'bold 28px Orbitron, Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2 - 10);
+  ctx.font = '14px Inter, sans-serif';
+  ctx.fillStyle = '#c7d7e9';
+  ctx.fillText('Press Space/P to resume or N to regenerate the map', canvas.width / 2, canvas.height / 2 + 18);
+}
+
 if (typeof document !== 'undefined' && typeof window !== 'undefined' && !window.__FACTORY_TEST__) {
   initializeGame();
 }
@@ -473,6 +619,7 @@ if (typeof module !== 'undefined') {
     inBounds,
     moveForward,
     addItemToBelt,
+    deliverOutput,
     createState,
     genWorld,
     seedResource,
@@ -481,6 +628,11 @@ if (typeof module !== 'undefined') {
     tileSize,
     gridWidth,
     gridHeight,
-    state
+    state,
+    togglePause,
+    resetGame,
+    canPlace,
+    updateSmelters,
+    updateAssemblers
   };
 }

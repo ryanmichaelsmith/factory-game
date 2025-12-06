@@ -50,6 +50,7 @@ body {
 .controls {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .controls button {
@@ -74,6 +75,17 @@ body {
   border-color: var(--accent);
   color: #e3fbff;
   box-shadow: 0 0 12px rgba(49, 214, 255, 0.35);
+}
+
+.controls button.secondary {
+  background: #1c2732;
+  border-color: #2b3946;
+  color: #d9e5f2;
+}
+
+.controls button.secondary:hover {
+  border-color: #87b2ff;
+  color: #ffffff;
 }
 
 #game {

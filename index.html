@@ -12,14 +12,19 @@
     <div class="controls">
       <button data-tool="belt">Belt (B) ↻R</button>
       <button data-tool="miner">Miner (M)</button>
+      <button data-tool="smelter">Smelter (S)</button>
       <button data-tool="assembler">Assembler (A)</button>
       <button data-tool="hub">Hub (H)</button>
       <button data-tool="remove">Remove (X)</button>
+      <button id="pause-btn" class="secondary">Pause (Space/P)</button>
+      <button id="reset-btn" class="secondary">Regenerate (N)</button>
     </div>
     <div class="status" id="status"></div>
   </div>
   <canvas id="game" width="960" height="640"></canvas>
   <div class="tip">
+    Mine iron or copper with miners, smelt them into plates, then craft gears in assemblers. Deliver plates and gears to the hub
+    for points. Space/P pauses, N regenerates the map, S selects smelters, and R rotates your placement ghost.
     Drag belts to chain directions. Feed iron into assemblers to craft gears. Deliver gears to the hub to increase your score.
   </div>
   <script src="main.js"></script>
