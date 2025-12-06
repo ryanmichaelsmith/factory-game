@@ -166,6 +166,7 @@ function renderPower() {
   const { generate, use, efficiency } = state.powerSnapshot;
   const pausedNote = state.productionPaused ? " (paused)" : "";
   ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used${pausedNote}`;
+  ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used`;
   const ratio = use === 0 ? 0 : Math.min(1, efficiency);
   ui.powerBar.style.width = `${Math.max(6, ratio * 100)}%`;
   ui.powerBar.style.background = ratio < 0.4 ? `linear-gradient(90deg, var(--danger), #ff9b6b)` : "";
@@ -233,6 +234,7 @@ function resolvePower() {
 function tick() {
   state.tick += 1;
   let efficiency = 1;
+  const { efficiency } = resolvePower();
 
   if (state.productionPaused) {
     state.powerSnapshot = { generate: 0, use: 0, efficiency: 1 };
