@@ -48,6 +48,7 @@ const state = {
   buildings: Object.fromEntries(buildings.map((b) => [b.id, 0])),
   tick: 0,
   log: [],
+  powerSnapshot: { generate: 0, use: 0, efficiency: 1 },
 };
 
 const ui = {
@@ -153,9 +154,9 @@ function updateUi() {
 }
 
 function renderPower() {
-  const { generate, use, efficiency } = evaluatePower();
+  const { generate, use, efficiency } = state.powerSnapshot;
   ui.power.textContent = `Grid: ${formatNumber(generate)} MW produced / ${formatNumber(use)} MW used`;
-  const ratio = use === 0 ? 0 : Math.min(1, generate / use);
+  const ratio = use === 0 ? 0 : Math.min(1, efficiency);
   ui.powerBar.style.width = `${Math.max(6, ratio * 100)}%`;
   ui.powerBar.style.background = ratio < 0.4 ? `linear-gradient(90deg, var(--danger), #ff9b6b)` : "";
   ui.powerBar.title = ratio < 1 ? "Power limited — output throttled" : "Stable grid";
@@ -172,7 +173,7 @@ function renderFlow() {
 }
 
 function summarizeFlow() {
-  const { efficiency } = evaluatePower();
+  const { efficiency } = state.powerSnapshot;
   const totals = { Ore: 0, Ingots: 0, "Machine Parts": 0 };
   buildings.forEach((building) => {
     const prod = building.production(state.buildings[building.id], efficiency);
@@ -185,21 +186,40 @@ function summarizeFlow() {
   return totals;
 }
 
-function evaluatePower() {
+function resolvePower() {
   let generate = 0;
   let use = 0;
+
   buildings.forEach((b) => {
     const power = b.power(state.buildings[b.id]);
     generate += power.generate;
     use += power.use;
   });
-  const ratio = use === 0 ? 1 : Math.min(1, generate / use);
-  return { generate, use, efficiency: ratio };
+
+  let stored = resources.power.amount;
+  let efficiency = 1;
+
+  if (use > generate) {
+    const deficit = use - generate;
+    if (stored >= deficit) {
+      stored -= deficit;
+    } else {
+      const available = generate + stored;
+      efficiency = available / use;
+      stored = 0;
+    }
+  } else {
+    stored += generate - use;
+  }
+
+  resources.power.amount = Math.max(0, stored);
+  state.powerSnapshot = { generate, use, efficiency };
+  return state.powerSnapshot;
 }
 
 function tick() {
   state.tick += 1;
-  const { efficiency } = evaluatePower();
+  const { efficiency } = resolvePower();
 
   buildings.forEach((building) => {
     const prod = building.production(state.buildings[building.id], efficiency);
