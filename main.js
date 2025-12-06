@@ -19,7 +19,6 @@ const colors = {
   iron: '#243749',
   copper: '#3f2a1d',
   belt: '#304b63',
-  smelter: '#b45b39',
   miner: '#4c7a3f',
   assembler: '#693f7a',
   hub: '#c9a63b',
@@ -262,6 +261,16 @@ function updateSmelters(dt) {
       structure.crafting = true;
       structure.progress = 0;
       structure.smelting = ore.type;
+        const target = structureAt(out.x, out.y);
+        const item = { type: tile.resource.type };
+        if (target && target.type === 'belt') {
+          if (!addItemToBelt(target, item)) {
+            addLooseItem(out.x, out.y, item);
+          }
+        } else {
+          addLooseItem(out.x, out.y, item);
+        }
+      }
     }
   });
 }
@@ -287,6 +296,7 @@ function updateAssemblers(dt) {
     let removed = 0;
     structure.input = structure.input.filter((i) => {
       if (i.type === 'iron-plate' && removed < 2) {
+      if (i.type === 'iron' && removed < 2) {
         removed += 1;
         return false;
       }

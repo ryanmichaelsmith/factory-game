@@ -15,6 +15,7 @@ const {
   resetGame,
   updateSmelters,
   updateAssemblers
+  gridHeight
 } = require('./main');
 
 describe('utility helpers', () => {
